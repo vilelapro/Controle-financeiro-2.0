@@ -37,6 +37,8 @@ input.v{width:96px;text-align:right}
 .add button{font:inherit;background:var(--acc);color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .add select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px}
+select.mo{width:66px;font:inherit;font-size:.85rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 2px}
+.row{flex-wrap:wrap}
 .pie{display:flex;gap:14px;align-items:center;padding:8px 0}.pie svg{width:150px;flex:none}.pie>div{flex:1;min-width:0}
 .lg{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:.9rem}.lg i{width:10px;height:10px;border-radius:50%;flex:none}.lg span{flex:1;min-width:0;overflow-wrap:anywhere}
 .pos{color:var(--ok)}.neg{color:var(--bad)}
@@ -77,7 +79,7 @@ details[open]>summary{padding-bottom:0}
 <div id="app"></div>
 <div id="sales"></div>
 <div id="hist"></div>
-<section><details data-ui="nova"><summary><div class="head"><h2>Nova categoria</h2></div></summary><div class="add"><input id="cn" placeholder="Nome da categoria" aria-label="Nome da categoria"><select id="ct" aria-label="Tipo"><option value="c">A pagar</option><option value="m">Mensal</option><option value="i">Entrada</option><option value="s">Para vender</option></select><button id="addcat">Criar</button></div></details></section>
+<section><details data-ui="nova"><summary><div class="head"><h2>Nova categoria</h2></div></summary><div class="add"><input id="cn" placeholder="Nome da categoria" aria-label="Nome da categoria"><select id="ct" aria-label="Tipo"><option value="c">A pagar</option><option value="m">Mensal</option><option value="i">Entrada</option><option value="r">A receber</option><option value="s">Para vender</option></select><button id="addcat">Criar</button></div></details></section>
 <section><details data-ui="imp"><summary><div class="head"><h2>Importar do bloco de notas</h2></div></summary><p class="hint">Cole o print aqui (ou escolha da galeria) que eu leio e monto a lista. Também dá para colar o texto direto. Uma conta por linha, com o valor no final.</p><div class="add"><label class="filebtn">📷 Escolher print<input type="file" id="imf" accept="image/*" hidden></label></div><textarea id="imt" rows="6" aria-label="Texto das contas" placeholder="Pneus 700&#10;Bateria 150 dia 10&#10;Licenciamento 1.200,00" style="width:100%;font:inherit;font-size:.9rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px"></textarea><small class="hint" id="imm" style="display:block;margin:4px 0"></small><div id="imp"></div><div class="add"><select id="impc" aria-label="Categoria de destino"></select><button id="impadd">Adicionar à categoria</button></div></details></section>
 <section><details data-ui="bk"><summary><div class="head"><h2>Backup dos dados</h2></div></summary><p class="hint">Gere o backup e guarde o texto numa nota. Para restaurar, cole o texto aqui.</p><textarea id="bk" rows="3" aria-label="Backup" style="width:100%;font:inherit;font-size:.8rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px"></textarea><div class="add"><button id="bkgen">Gerar backup</button><button id="bkrest">Restaurar</button><small class="hint" id="bkm" style="margin:6px 0 0"></small></div></details></section>
 <p class="hint">Marque ✓ quando pagar uma conta, receber uma entrada ou vender um item. Os dados ficam salvos neste navegador.</p>
@@ -101,8 +103,9 @@ if(!S||!S.g)S=seed();
 
 if(!S.v2){if(!S.g.some(g=>g.inc)){const r=+S.renda||0;S.g.unshift({t:'Entradas',sub:'zera todo mês: marque ✓ ao receber',monthly:true,inc:true,month:mk(),items:r?[it('Renda mensal',r)]:[]})}delete S.renda;S.v2=1}
 if(!S.v3){if(!S.g.some(g=>g.t==='Faculdade')){const k=S.g.findIndex(g=>g.monthly&&!g.inc);S.g.splice(k<0?S.g.length:k+1,0,{t:'Faculdade',sub:'zera todo mês: marque ✓ ao pagar',monthly:true,month:mk(),items:[it('Mensalidade da faculdade',0)]})}S.v3=1}
+if(!S.v4){if(!S.g.some(g=>g.rec)){const k=S.g.findIndex(g=>g.inc);S.g.splice(k<0?0:k+1,0,{t:'A receber',sub:'quem vai me pagar: nome, dia e mês do pagamento',inc:true,rec:true,open:true,items:[]})}S.v4=1}
 const ts=g=>g.items.reduce((a,x)=>a+(+x.v||0),0),old=S.g.find(g=>g.monthly&&g.month&&g.month!==mk());
-if(old){S.hist=S.hist||[];if(!S.hist.some(h=>h.m===old.month))S.hist.push({m:old.month,ent:S.g.filter(g=>g.inc).reduce((a,g)=>a+ts(g),0),gas:S.g.filter(g=>g.monthly&&!g.inc).reduce((a,g)=>a+ts(g),0)})}
+if(old){S.hist=S.hist||[];if(!S.hist.some(h=>h.m===old.month))S.hist.push({m:old.month,ent:S.g.filter(g=>g.inc&&!g.rec).reduce((a,g)=>a+ts(g),0),gas:S.g.filter(g=>g.monthly&&!g.inc).reduce((a,g)=>a+ts(g),0)})}
 S.g.forEach(g=>{if(g.monthly&&g.month!==mk()){g.month=mk();g.items.forEach(x=>x.p=false)}});
 save();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -127,8 +130,13 @@ function drawSales(){
  const ks=Object.keys(m).sort((a,b)=>sk(b)-sk(a));
  document.getElementById('sales').innerHTML=`<section><details data-ui="vm" ${uiOpen('vm')?'open':''}><summary><div class="head"><h2>Vendas por mês</h2>${any?`<small>lucro ${lc(tl)}</small>`:''}</div></summary>${any?ks.map(k=>{const r=m[k],l=r.v-r.c;return `<div class="row"><span class="n">${k==='0'?'Sem data':ml(k)}<small class="hint" style="display:block;margin:0">${r.n} ${r.n>1?'itens':'item'} · vendi ${brl(r.v)} · paguei ${brl(r.c)}</small></span>${lc(l)}</div>`}).join(''):'<p class="hint">Aparece aqui quando você marcar um item como vendido.</p>'}</details></section>`;
 }
-function due(x,g){if(!x.d||g.sell)return '';const df=x.d-new Date().getDate();if(x.p||g.inc)return `dia ${x.d}`;if(df<0)return `<span class="neg">atrasada desde o dia ${x.d}</span>`;if(df===0)return '<span class="neg">vence hoje</span>';if(df<=3)return `<span style="color:#c98a12">vence em ${df} dia${df>1?'s':''}</span>`;return `dia ${x.d}`}
-function alerts(){let n=0;const t=new Date().getDate();S.g.forEach(g=>{if(!g.sell&&!g.inc)g.items.forEach(x=>{if(x.d&&!x.p&&x.d-t<=3)n++})});return n}
+const MES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const MA=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const moOpts=v=>'<option value="">Mês</option>'+MA.map((m,i)=>`<option value="${i+1}"${+v===i+1?' selected':''}>${m}</option>`).join('');
+function dl(x){return x.d?(x.mo?`dia ${x.d} de ${MES[x.mo-1]}`:`dia ${x.d}`):(x.mo?MES[x.mo-1]:'')}
+function dfn(x){if(!x.d)return null;const t=new Date();if(x.mo){const a=new Date(t.getFullYear(),x.mo-1,x.d),b=new Date(t.getFullYear(),t.getMonth(),t.getDate());return Math.round((a-b)/864e5)}return x.d-t.getDate()}
+function due(x,g){if(g.sell)return '';const l=dl(x);if(!l)return '';if(x.p||g.inc)return l;const df=dfn(x);if(df===null)return l;if(df<0)return `<span class="neg">atrasada desde o ${l}</span>`;if(df===0)return '<span class="neg">vence hoje</span>';if(df<=3)return `<span style="color:#c98a12">vence em ${df} dia${df>1?'s':''}</span>`;return l}
+function alerts(){let n=0;S.g.forEach(g=>{if(!g.sell&&!g.inc)g.items.forEach(x=>{const df=dfn(x);if(df!==null&&!x.p&&df<=3)n++})});return n}
 function ml(m){const[a,b]=m.split('-');return b.padStart(2,'0')+'/'+a}
 function drawHist(){
  const h=(S.hist||[]).slice(-12).reverse(),el=document.getElementById('hist');
@@ -153,7 +161,7 @@ function render(){
   else if(!g.inc){owe+=sum(g.items,x=>!x.p);paid+=sum(g.items,x=>x.p)}
  });
  const bal=sold+pend-owe;
- S.g.forEach(g=>{if(g.monthly&&!g.inc)mt+=sum(g.items,()=>1);if(g.inc)ic+=sum(g.items,()=>1)});const rest=ic-mt,al=alerts();
+ S.g.forEach(g=>{if(g.monthly&&!g.inc)mt+=sum(g.items,()=>1);if(g.inc)ic+=g.rec?sum(g.items,x=>!x.mo||x.mo===new Date().getMonth()+1):sum(g.items,()=>1)});const rest=ic-mt,al=alerts();
  document.getElementById('sum').innerHTML=`<div class="sum"><div class="lbl">Falta pagar</div><div class="big">${brl(owe)}</div>
  <div class="grid"><div><span class="lbl">Já pago</span><b>${brl(paid)}</b></div><div><span class="lbl">Já vendido</span><b>${brl(sold)}</b></div>
  <div><span class="lbl">A vender</span><b>${brl(pend)}</b></div><div><span class="lbl">Se vender tudo</span><b>${bal>=0?'sobra ':'faltam '}${brl(Math.abs(bal))}</b></div></div>${al?`<div class="lbl" style="margin-top:10px">⚠ ${al} conta${al>1?'s':''} atrasada${al>1?'s':''} ou vencendo em até 3 dias</div>`:''}</div>
@@ -163,9 +171,9 @@ function render(){
   const sold=g.items.filter(x=>x.p),lSold=sold.reduce((a,x)=>a+lucro(x),0),pSold=sold.reduce((a,x)=>a+(+x.c||0),0),vSold=sold.reduce((a,x)=>a+(+x.v||0),0),lAll=g.items.reduce((a,x)=>a+lucro(x),0);
   const rows=g.items.map((x,i)=>{
    if(g.sell){const l=lucro(x);return `<div class="row sr${x.p?' done':''}"><input type="checkbox" aria-label="Vendido" data-g="${gi}" data-i="${i}" ${x.p?'checked':''}><span class="n">${esc(x.n)}${x.p&&x.sd?`<small class="hint" style="display:block;margin:0">vendido em ${ml(x.sd)}</small>`:''}</span><button class="x" aria-label="Remover" data-del="${gi}:${i}">×</button><div class="sl"><label>Paguei<input class="v" inputmode="decimal" aria-label="Quanto paguei" data-f="c" data-g="${gi}" data-i="${i}" value="${x.c||''}" placeholder="0,00"></label><label>Vendi por<input class="v" inputmode="decimal" aria-label="Vendi por" data-g="${gi}" data-i="${i}" value="${x.v||''}" placeholder="0,00"></label><span class="lu">${x.p?'lucro':'previsto'}${(x.v||x.c)?lc(l):'<b>—</b>'}</span></div></div>`}
-   return `<div class="row${x.p?' done':''}"><input type="checkbox" aria-label="Pago" data-g="${gi}" data-i="${i}" ${x.p?'checked':''}><span class="n">${esc(x.n)}<small class="hint" style="display:block;margin:0">${due(x,g)}</small></span><input class="dd" inputmode="numeric" aria-label="Dia do vencimento" data-f="d" data-g="${gi}" data-i="${i}" value="${x.d||''}" placeholder="dia"><input class="v" inputmode="decimal" aria-label="Valor" data-g="${gi}" data-i="${i}" value="${x.v||''}" placeholder="0,00"><button class="x" aria-label="Remover" data-del="${gi}:${i}">×</button></div>`}).join('');
+   return `<div class="row${x.p?' done':''}"><input type="checkbox" aria-label="Pago" data-g="${gi}" data-i="${i}" ${x.p?'checked':''}><span class="n">${esc(x.n)}<small class="hint" style="display:block;margin:0">${due(x,g)}</small></span><input class="dd" inputmode="numeric" aria-label="Dia do vencimento" data-f="d" data-g="${gi}" data-i="${i}" value="${x.d||''}" placeholder="dia"><select class="mo" aria-label="Mês" data-f="mo" data-g="${gi}" data-i="${i}">${moOpts(x.mo)}</select><input class="v" inputmode="decimal" aria-label="Valor" data-g="${gi}" data-i="${i}" value="${x.v||''}" placeholder="0,00"><button class="x" aria-label="Remover" data-del="${gi}:${i}">×</button></div>`}).join('');
   const stot=g.sell?`<div class="stot"><div><span>Paguei (vendidos)</span><b>${brl(pSold)}</b></div><div><span>Vendi</span><b>${brl(vSold)}</b></div><div><span>Lucro</span>${lc(lSold)}</div></div><p class="hint" style="margin:0 0 6px">Se vender tudo: lucro ${lc(lAll)}</p>`:'';
-  const addRow=g.sell?`<div class="add"><input placeholder="Novo item" aria-label="Nome" id="n${gi}"><input class="v c" inputmode="decimal" placeholder="Paguei" aria-label="Quanto paguei" id="c${gi}"><input class="v" inputmode="decimal" placeholder="Vendi por" aria-label="Vendi por" id="v${gi}"><button data-add="${gi}">Adicionar</button></div>`:`<div class="add"><input placeholder="Novo item" aria-label="Nome" id="n${gi}"><input class="dd" inputmode="numeric" placeholder="Dia" aria-label="Dia do vencimento" id="d${gi}"><input class="v" inputmode="decimal" placeholder="Valor" aria-label="Valor" id="v${gi}"><button data-add="${gi}">Adicionar</button></div>`;
+  const addRow=g.sell?`<div class="add"><input placeholder="Novo item" aria-label="Nome" id="n${gi}"><input class="v c" inputmode="decimal" placeholder="Paguei" aria-label="Quanto paguei" id="c${gi}"><input class="v" inputmode="decimal" placeholder="Vendi por" aria-label="Vendi por" id="v${gi}"><button data-add="${gi}">Adicionar</button></div>`:`<div class="add"><input placeholder="${g.inc?'Nome de quem vai pagar':'Novo item'}" aria-label="Nome" id="n${gi}"><input class="dd" inputmode="numeric" placeholder="Dia" aria-label="${g.inc?'Dia do pagamento':'Dia do vencimento'}" id="d${gi}"><select class="mo" aria-label="Mês" id="m${gi}">${moOpts()}</select><input class="v" inputmode="decimal" placeholder="Valor" aria-label="Valor" id="v${gi}"><button data-add="${gi}">Adicionar</button></div>`;
   return `<section><details data-gi="${gi}" ${g.open?'open':''}><summary><div class="head"><h2>${esc(g.t)}</h2><small>${g.sell?'vendido':g.inc?'recebido':'pago'} ${brl(dn)} de ${brl(tot)}</small></div>${g.sell&&sold.length?`<div class="hint" style="margin:2px 0 0">lucro das vendas ${lc(lSold)}</div>`:''}<div class="bar"><i style="width:${pc}%"></i></div></summary><div class="head"><small class="hint" style="margin:0">${esc(g.sub||'')}</small><button class="x" style="font-size:.85rem" data-delg="${gi}">${armed===gi?'Confirmar exclusão?':'Excluir categoria'}</button></div>${g.sell||g.inc?'':`<div class="row" style="border:0;padding:2px 0"><span class="n hint">Meta do mês</span><input class="v" inputmode="decimal" aria-label="Meta" data-meta="${gi}" value="${g.meta||''}" placeholder="sem meta"></div>${g.meta>0?`<div class="bar"><i style="width:${Math.min(100,tot/g.meta*100)}%;background:${tot>g.meta?'var(--bad)':'var(--acc)'}"></i></div><small class="${tot>g.meta?'neg':'hint'}">${brl(tot)} de ${brl(g.meta)}${tot>g.meta?' — passou da meta':''}</small>`:''}`}${rows}${stot}${g.sell?profitChart(g,gi):''}${addRow}</details></section>`}).join('');
  drawPie();drawSales();drawHist();fillImp();
 }
@@ -176,7 +184,7 @@ document.addEventListener('change',e=>{
  if(t.dataset.meta!==undefined){S.g[t.dataset.meta].meta=parse(t.value);save();render();return}
  if(g===undefined||i===undefined)return;
  const x=S.g[g].items[i];
- if(t.type==='checkbox'){x.p=t.checked;if(S.g[g].sell){if(x.p)x.sd=mk();else delete x.sd}}else if(t.dataset.f==='c')x.c=parse(t.value);else if(t.dataset.f==='d'){const n=parseInt(t.value);x.d=n>=1&&n<=31?n:undefined}else x.v=parse(t.value);
+ if(t.type==='checkbox'){x.p=t.checked;if(S.g[g].sell){if(x.p)x.sd=mk();else delete x.sd}}else if(t.dataset.f==='c')x.c=parse(t.value);else if(t.dataset.f==='d'){const n=parseInt(t.value);x.d=n>=1&&n<=31?n:undefined}else if(t.dataset.f==='mo'){const n=parseInt(t.value);x.mo=n>=1&&n<=12?n:undefined}else x.v=parse(t.value);
  save();render();
 });
 document.addEventListener('click',e=>{
@@ -188,13 +196,13 @@ document.addEventListener('click',e=>{
  else if(b.id==='addcat'){
   const n=document.getElementById('cn').value.trim();if(!n)return;
   const k=document.getElementById('ct').value,g={t:n,sub:k==='m'?'zera todo mês: marque ✓ ao pagar':k==='s'?'preencha o preço de cada item':'',items:[]};
-  if(k==='m'||k==='i'){g.monthly=true;g.month=mk()}if(k==='i'){g.inc=true;g.sub='zera todo mês: marque ✓ ao receber'}if(k==='s')g.sell=true;
+  if(k==='m'||k==='i'){g.monthly=true;g.month=mk()}if(k==='i'){g.inc=true;g.sub='zera todo mês: marque ✓ ao receber'}if(k==='s')g.sell=true;if(k==='r'){g.inc=true;g.rec=true;g.sub='quem vai me pagar: nome, dia e mês do pagamento'}
   g.open=true;S.g.push(g);document.getElementById('cn').value='';save();render();
  }
  else if(b.dataset.add!==undefined){
   const g=b.dataset.add,n=document.getElementById('n'+g).value.trim();
   if(!n)return;
-  const x=it(n,parse(document.getElementById('v'+g).value)),ce=document.getElementById('c'+g);if(ce)x.c=parse(ce.value);const dv=parseInt((document.getElementById('d'+g)||{}).value);if(dv>=1&&dv<=31)x.d=dv;S.g[g].items.push(x);S.g[g].open=true;save();render();
+  const x=it(n,parse(document.getElementById('v'+g).value)),ce=document.getElementById('c'+g);if(ce)x.c=parse(ce.value);const dv=parseInt((document.getElementById('d'+g)||{}).value);if(dv>=1&&dv<=31)x.d=dv;const mv=parseInt((document.getElementById('m'+g)||{}).value);if(mv>=1&&mv<=12)x.mo=mv;S.g[g].items.push(x);S.g[g].open=true;save();render();
  }
 });
 document.addEventListener('toggle',e=>{const d=e.target;if(!d||d.tagName!=='DETAILS')return;
